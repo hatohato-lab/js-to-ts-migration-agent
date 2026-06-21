@@ -1,0 +1,6 @@
+node_modules/
+*.tsbuildinfo
+candidate.ts
+
+# 自分用メモ（GitHub に公開しない・手元の理解用）
+_notes/

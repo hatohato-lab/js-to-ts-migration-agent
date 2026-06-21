@@ -1,0 +1,1 @@
+the:3 cat:2 bird:1 dog:1
