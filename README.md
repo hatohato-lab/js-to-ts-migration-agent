@@ -39,7 +39,7 @@ python eval/oracle.py --selftest
 
 ## エージェントの動かし方（candidate の作り方）
 
-`agent/js-to-ts-migration-agent.md` は **Claude Code 用のエージェント定義（指示書）** です。置いてあるだけでは動かず、呼ばれて初めて動きます。
+`.claude/agents/js-to-ts-migration-agent.md` は **Claude Code 用のエージェント定義（指示書）** です。置いてあるだけでは動かず、呼ばれて初めて動きます。
 
 - `input.js` を `candidate.ts` に移行させるには、この定義を **`.claude/agents/` に置いて名前で呼ぶ**か、定義の指示に従って**任意の LLM に移行させ**ます。
 - 完全自動の1コマンドは用意していません（学習・手法実証が目的のため）。
@@ -76,7 +76,7 @@ flowchart LR
 
 ## ファイル構成
 
-- `agent/js-to-ts-migration-agent.md` … エージェントの定義（システムプロンプト）。
+- `.claude/agents/js-to-ts-migration-agent.md` … エージェントの定義（システムプロンプト）。
 - `eval/oracle.py` … 採点プログラム（差分テスト。`--selftest` 内蔵）。
 - `eval/corpus/<ケース>/` … `input.js`（元のJS＝評価基準の素）/ `reference.ts`（正しい移行の見本）/ `golden.txt`（元の出力の控え・点検用）。
 - `candidate.ts` … エージェントが生成する採点対象（`.gitignore` 対象。clone 直後は存在しません）。
