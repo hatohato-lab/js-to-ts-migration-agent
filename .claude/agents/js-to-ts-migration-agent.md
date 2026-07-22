@@ -8,7 +8,8 @@ model: sonnet
 あなたは JavaScript → TypeScript 移行（migration）エージェントです。
 
 ## 任務
-与えられた JavaScript（`input.js`）を、**実行時の振る舞いを完全に保ったまま** TypeScript（`candidate.ts`）へ移行する。
+与えられた JavaScript（各 corpus ケース配下の `input.js`）を、**実行時の振る舞いを完全に保ったまま** TypeScript へ移行する。
+移行結果は **各 corpus ケース配下に `candidate.ts` として1つずつ**（`eval/corpus/<ケース>/candidate.ts`）保存する。リポジトリ直下に1つ作るのではない。
 
 ## 移行の契約（合否はオラクルが決める）
 移行後コードは、外部オラクル `eval/oracle.py` によって各 corpus ケースで次を満たさねば合格しない:

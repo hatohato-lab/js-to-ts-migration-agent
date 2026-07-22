@@ -1,6 +1,11 @@
 # js-to-ts-migration-agent
 
+*A Claude Code agent that migrates JavaScript to strictly-typed TypeScript without changing behavior,
+plus a deterministic differential-testing oracle that grades each migration against the original program's own output.*
+
 JavaScript を、**振る舞いを変えずに型つき TypeScript へ移行（migration）する**エージェントと、その移行が正しいかを自動で判定する**オラクル（採点プログラム）**。
+
+専門用語を使わない説明は [説明書.md](説明書.md) にあります。
 
 ## 概要
 
@@ -41,7 +46,8 @@ python eval/oracle.py --selftest
 
 `.claude/agents/js-to-ts-migration-agent.md` は **Claude Code 用のエージェント定義（指示書）** です。置いてあるだけでは動かず、呼ばれて初めて動きます。
 
-- `input.js` を `candidate.ts` に移行させるには、この定義を **`.claude/agents/` に置いて名前で呼ぶ**か、定義の指示に従って**任意の LLM に移行させ**ます。
+- 各ケースの `input.js` を `candidate.ts` に移行させるには、この定義を **`.claude/agents/` に置いて名前で呼ぶ**か、定義の指示に従って**任意の LLM に移行させ**ます。
+- `candidate.ts` は**各 corpus ケース配下（`eval/corpus/<ケース>/candidate.ts`）に1つずつ**作ります。リポジトリ直下に1つ作るのではありません。
 - 完全自動の1コマンドは用意していません（学習・手法実証が目的のため）。
 - `candidate.ts` を用意できなくても、クイックスタート (1) の **reference** で全工程を再現できます。
 
@@ -72,15 +78,17 @@ flowchart LR
 
 ## 合否の基準（eval）
 
-各ケースで「`tsc --strict` コンパイル成功 ＋ `node` 実行の標準出力が、**元の `input.js` を実行した出力**と完全一致」。
+各ケースで「`tsc --strict` コンパイル成功 ＋ `node` 実行の標準出力が、**元の `input.js` を実行した出力**と一致」。
+出力の比較は、**前後の空白・改行を正規化（strip）した上での完全一致**です（末尾の改行だけの差は不問。途中の内容・順序・書式はすべて一致が必要）。
 
 ## ファイル構成
 
 - `.claude/agents/js-to-ts-migration-agent.md` … エージェントの定義（システムプロンプト）。
 - `eval/oracle.py` … 採点プログラム（差分テスト。`--selftest` 内蔵）。
 - `eval/corpus/<ケース>/` … `input.js`（元のJS＝評価基準の素）/ `reference.ts`（正しい移行の見本）/ `golden.txt`（元の出力の控え・点検用）。
-- `candidate.ts` … エージェントが生成する採点対象（`.gitignore` 対象。clone 直後は存在しません）。
+- `eval/corpus/<ケース>/candidate.ts` … エージェントが**各ケース配下に1つずつ**生成する採点対象（`.gitignore` 対象。clone 直後は存在しません）。
 - `design/design.md` … 設計の考え方・なぜ差分テストか・他言語への一般化。
+- `tsconfig.json` … エディタ（VS Code 等）用の TypeScript 設定。**採点時に実際に効くのは `eval/oracle.py` の `TSC_FLAGS`**（オラクルは tsc にファイル名を直接渡すため、tsc の仕様で tsconfig.json は読まれません）。内容は `TSC_FLAGS` と同一に保ちます。
 
 ---
 
