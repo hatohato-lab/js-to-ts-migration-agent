@@ -39,6 +39,15 @@ LANG = "JavaScript → TypeScript（移行）"
 EXT = ".ts"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CORPUS = Path(__file__).resolve().parent / "corpus"
+# subprocess の上限秒数。移行ミスで無限ループ化した candidate を採点しても
+# オラクルがハングしないための安全弁。超過は FAIL 扱い。
+TIMEOUT_SEC = 30
+# tsc に渡すコンパイルフラグ。★実際に効くのはここ★
+# オラクルは tsc にファイル名を直接渡すため、tsc の仕様で tsconfig.json は読まれない。
+# ルートの tsconfig.json はエディタ（VS Code 等）用の鏡写しであり、
+# フラグを変えるときは必ず両方を同じ内容に揃えること。
+TSC_FLAGS = ["--target", "es2020", "--module", "commonjs",
+             "--strict", "--noEmitOnError", "--skipLibCheck"]
 # selftest 用の汎用ミューテーション（ファイル非依存で壊す）
 OUTPUT_BREAK = '\nconsole.log("__ORACLE_SELFTEST_EXTRA__");\n'
 COMPILE_BREAK = '\nconst __oracle_selftest_broken__: = ;\n'
@@ -46,8 +55,12 @@ COMPILE_BREAK = '\nconst __oracle_selftest_broken__: = ;\n'
 
 def run_node(js_src: Path):
     """JavaScript ファイルを node で実行して stdout を返す。(ok, stdout, detail)"""
-    rp = subprocess.run(["node", str(js_src)],
-                        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try:
+        rp = subprocess.run(["node", str(js_src)],
+                            capture_output=True, text=True, encoding="utf-8", errors="replace",
+                            timeout=TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        return (False, "", f"タイムアウト: node 実行が {TIMEOUT_SEC} 秒を超過（無限ループの疑い）")
     if rp.returncode != 0:
         return (False, "", "node 実行エラー: " + rp.stderr.strip().replace("\n", " ")[:160])
     return (True, rp.stdout, "ok")
@@ -58,12 +71,14 @@ def compile_and_run(src: Path, workdir: Path):
     tsc = REPO_ROOT / "node_modules" / "typescript" / "bin" / "tsc"
     if not tsc.exists():
         return (False, "", "typescript 未インストール（repo 直下で npm install -D typescript）")
-    cp = subprocess.run(
-        ["node", str(tsc), str(src), "--outDir", str(workdir),
-         "--target", "es2020", "--module", "commonjs",
-         "--strict", "--noEmitOnError", "--skipLibCheck"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
+    try:
+        cp = subprocess.run(
+            ["node", str(tsc), str(src), "--outDir", str(workdir), *TSC_FLAGS],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        return (False, "", f"タイムアウト: tsc コンパイルが {TIMEOUT_SEC} 秒を超過")
     if cp.returncode != 0:
         msg = (cp.stdout + cp.stderr).strip().replace("\n", " ")
         return (False, "", "tsc: " + msg[:160])
@@ -73,8 +88,12 @@ def compile_and_run(src: Path, workdir: Path):
         if not found:
             return (False, "", "コンパイル後の .js が見つからない")
         js = found[0]
-    rp = subprocess.run(["node", str(js)],
-                        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    try:
+        rp = subprocess.run(["node", str(js)],
+                            capture_output=True, text=True, encoding="utf-8", errors="replace",
+                            timeout=TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        return (False, "", f"タイムアウト: node 実行が {TIMEOUT_SEC} 秒を超過（無限ループの疑い）")
     if rp.returncode != 0:
         return (False, "", "node 実行時エラー: " + rp.stderr.strip().replace("\n", " ")[:160])
     return (True, rp.stdout, "ok")
@@ -154,19 +173,24 @@ def selftest():
     rows, good_ok = grade_all("reference")
     print_table(rows, "① 正しい移行 reference（元の出力と一致＝PASS であるべき）")
 
-    c0 = cases()[0]
-    ok_g, golden0, _ = case_golden(c0)
-    ref = (c0 / f"reference{EXT}").read_text(encoding="utf-8")
+    # 負例ミューテーションは全ケースに適用する（先頭ケースだけでは検証が偏るため）。
     brk_rows, breaks_ok = [], True
-    for label, mut in [("出力破壊", OUTPUT_BREAK), ("構文破壊", COMPILE_BREAK)]:
-        with tempfile.TemporaryDirectory() as td:
-            p = Path(td) / f"broken{EXT}"
-            p.write_text(ref + mut, encoding="utf-8")
-            verdict, _ = grade_against(p, golden0)
-        ok = verdict == "FAIL"
-        breaks_ok = breaks_ok and ok
-        brk_rows.append((f"{label}({c0.name})", verdict, "期待=FAIL " + ("OK" if ok else "NG オラクル不良")))
-    print_table(brk_rows, "② 壊れた移行（FAIL であるべき）")
+    for c in cases():
+        ok_g, golden_c, dg = case_golden(c)
+        if not ok_g:
+            brk_rows.append((c.name, "FAIL", "元(input.js)の実行に失敗: " + dg))
+            breaks_ok = False
+            continue
+        ref = (c / f"reference{EXT}").read_text(encoding="utf-8")
+        for label, mut in [("出力破壊", OUTPUT_BREAK), ("構文破壊", COMPILE_BREAK)]:
+            with tempfile.TemporaryDirectory() as td:
+                p = Path(td) / f"broken{EXT}"
+                p.write_text(ref + mut, encoding="utf-8")
+                verdict, _ = grade_against(p, golden_c)
+            ok = verdict == "FAIL"
+            breaks_ok = breaks_ok and ok
+            brk_rows.append((f"{label}({c.name})", verdict, "期待=FAIL " + ("OK" if ok else "NG オラクル不良")))
+    print_table(brk_rows, "② 壊れた移行（全ケース・FAIL であるべき）")
 
     snap_rows, snap_ok = check_golden_snapshot()
     print_table(snap_rows, "③ 控え golden.txt が元の出力と一致するか（基準の点検）")
