@@ -43,11 +43,14 @@ CORPUS = Path(__file__).resolve().parent / "corpus"
 # オラクルがハングしないための安全弁。超過は FAIL 扱い。
 TIMEOUT_SEC = 30
 # tsc に渡すコンパイルフラグ。★実際に効くのはここ★
-# オラクルは tsc にファイル名を直接渡すため、tsc の仕様で tsconfig.json は読まれない。
+# オラクルは tsc にファイル名を直接渡すため tsconfig.json は使わない。
+# TypeScript 6 以降は、ファイル名指定時に tsconfig.json が存在するとエラー TS5112 を
+# 出すため、--ignoreConfig で「設定ファイルは読まない」を明示する。
 # ルートの tsconfig.json はエディタ（VS Code 等）用の鏡写しであり、
-# フラグを変えるときは必ず両方を同じ内容に揃えること。
+# コンパイルフラグを変えるときは必ず両方を同じ内容に揃えること。
 TSC_FLAGS = ["--target", "es2020", "--module", "commonjs",
-             "--strict", "--noEmitOnError", "--skipLibCheck"]
+             "--strict", "--noEmitOnError", "--skipLibCheck",
+             "--ignoreConfig"]
 # selftest 用の汎用ミューテーション（ファイル非依存で壊す）
 OUTPUT_BREAK = '\nconsole.log("__ORACLE_SELFTEST_EXTRA__");\n'
 COMPILE_BREAK = '\nconst __oracle_selftest_broken__: = ;\n'

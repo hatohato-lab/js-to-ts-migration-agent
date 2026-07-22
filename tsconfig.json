@@ -1,7 +1,7 @@
 {
   // エディタ（VS Code 等）の型チェック用設定。
   // 採点時に実際に効くのは eval/oracle.py の TSC_FLAGS（オラクルは tsc に
-  // ファイル名を直接渡すため、tsc の仕様で tsconfig.json は読まれない）。
+  // ファイル名を直接渡し、--ignoreConfig でこのファイルを読まないことを明示する）。
   // フラグを変えるときは、必ず TSC_FLAGS とこのファイルの両方を同じ内容に揃えること。
   "compilerOptions": {
     "target": "es2020",

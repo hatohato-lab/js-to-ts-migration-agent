@@ -88,7 +88,7 @@ flowchart LR
 - `eval/corpus/<ケース>/` … `input.js`（元のJS＝評価基準の素）/ `reference.ts`（正しい移行の見本）/ `golden.txt`（元の出力の控え・点検用）。
 - `eval/corpus/<ケース>/candidate.ts` … エージェントが**各ケース配下に1つずつ**生成する採点対象（`.gitignore` 対象。clone 直後は存在しません）。
 - `design/design.md` … 設計の考え方・なぜ差分テストか・他言語への一般化。
-- `tsconfig.json` … エディタ（VS Code 等）用の TypeScript 設定。**採点時に実際に効くのは `eval/oracle.py` の `TSC_FLAGS`**（オラクルは tsc にファイル名を直接渡すため、tsc の仕様で tsconfig.json は読まれません）。内容は `TSC_FLAGS` と同一に保ちます。
+- `tsconfig.json` … エディタ（VS Code 等）用の TypeScript 設定。**採点時に実際に効くのは `eval/oracle.py` の `TSC_FLAGS`**（オラクルは tsc にファイル名を直接渡し、`--ignoreConfig` で tsconfig.json を読まないことを明示します）。内容は `TSC_FLAGS` と同一に保ちます。
 
 ---
 
